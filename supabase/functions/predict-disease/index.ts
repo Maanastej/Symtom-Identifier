@@ -6,6 +6,60 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// --- Prediction Logic Start ---
+
+function normalizeSymptom(symptom: string): string {
+  return symptom.toLowerCase().trim().replace(/[^a-z\s]/g, '');
+}
+
+function fuzzyMatch(userSymptom: string, diseaseSymptom: string): boolean {
+  const user = normalizeSymptom(userSymptom);
+  const disease = normalizeSymptom(diseaseSymptom);
+  
+  if (user === disease) return true;
+  if (user.includes(disease) || disease.includes(user)) return true;
+  
+  const userWords = user.split(' ');
+  const diseaseWords = disease.split(' ');
+  
+  for (const uw of userWords) {
+    for (const dw of diseaseWords) {
+      if (uw.length > 3 && dw.length > 3 && (uw.includes(dw) || dw.includes(uw))) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+function calculatePrediction(userSymptoms: string[], diseaseSymptoms: string[]) {
+  const matched: string[] = [];
+  const matchedDiseaseSymptoms = new Set<string>();
+  
+  for (const userSymptom of userSymptoms) {
+    for (const diseaseSymptom of diseaseSymptoms) {
+      if (!matchedDiseaseSymptoms.has(diseaseSymptom) && fuzzyMatch(userSymptom, diseaseSymptom)) {
+        matched.push(userSymptom);
+        matchedDiseaseSymptoms.add(diseaseSymptom);
+        break;
+      }
+    }
+  }
+  
+  if (userSymptoms.length === 0) return { score: 0, matched: [] };
+  
+  const userMatchRatio = matched.length / userSymptoms.length;
+  const diseaseMatchRatio = matchedDiseaseSymptoms.size / diseaseSymptoms.length;
+  
+  // Weighted score favor matching user symptoms
+  const score = (userMatchRatio * 0.6) + (diseaseMatchRatio * 0.4);
+  
+  return { score, matched };
+}
+
+// --- Prediction Logic End ---
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -21,112 +75,71 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    // Fetch diseases from database for context
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: diseases } = await supabase
+    // Fetch diseases from database
+    const { data: diseases, error: fetchError } = await supabase
       .from("diseases")
       .select("*");
 
-    const diseaseContext = diseases?.map(d => 
-      `- ${d.name}: symptoms: [${d.symptoms?.join(", ")}], severity: ${d.severity}, communicable: ${d.is_communicable}, precautions: [${d.precautions?.join(", ")}], medications: [${d.medications?.join(", ")}]`
-    ).join("\n") || "No diseases in database";
+    if (fetchError) throw fetchError;
 
-    const systemPrompt = `You are a medical AI assistant that helps predict possible diseases based on symptoms. You have access to a disease database.
-
-DISEASE DATABASE:
-${diseaseContext}
-
-IMPORTANT RULES:
-1. Only suggest diseases from the database above
-2. Provide confidence scores (0-100) based on symptom match
-3. Always include a disclaimer that this is not a medical diagnosis
-4. Be helpful but cautious - recommend seeing a doctor for serious symptoms
-5. Return your response as valid JSON
-
-OUTPUT FORMAT (strict JSON):
-{
-  "predictions": [
-    {
-      "disease_name": "string",
-      "confidence": number (0-100),
-      "matched_symptoms": ["symptom1", "symptom2"],
-      "severity": "mild|moderate|severe|critical",
-      "is_communicable": boolean,
-      "precautions": ["precaution1", "precaution2"],
-      "medications": ["med1", "med2"],
-      "reasoning": "Brief explanation of why this disease matches"
+    if (!diseases || diseases.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Disease database is empty" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-  ],
-  "general_advice": "string with general health advice",
-  "urgency": "low|medium|high|emergency"
-}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `I am experiencing the following symptoms: ${symptoms.join(", ")}. Please analyze these symptoms and predict possible diseases from your database.` }
-        ],
-        temperature: 0.3,
-      }),
+    // Run prediction model
+    const predictionsList = diseases.map(disease => {
+      const { score, matched } = calculatePrediction(symptoms, disease.symptoms || []);
+      
+      // Calculate confidence (0-100)
+      const confidence = Math.min(100, Math.round(
+        score * 100 * 
+        (matched.length >= 3 ? 1.2 : matched.length >= 2 ? 1.0 : 0.8)
+      ));
+      
+      return {
+        disease_name: disease.name,
+        confidence: confidence,
+        matched_symptoms: matched,
+        severity: disease.severity || "moderate",
+        is_communicable: disease.is_communicable || false,
+        precautions: disease.precautions || [],
+        medications: disease.medications || [],
+        reasoning: `Matched ${matched.length} symptoms: ${matched.join(", ")}. This provides a match score of ${Math.round(score * 100)}%.`,
+        score: score
+      };
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded, please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required, please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("AI gateway error");
-    }
+    // Sort by score and take top 5
+    const topPredictions = predictionsList
+      .filter(p => p.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    // Determine overall urgency
+    let maxUrgency = "low";
+    const severities = topPredictions.map(p => p.severity);
+    if (severities.includes("critical")) maxUrgency = "emergency";
+    else if (severities.includes("severe")) maxUrgency = "high";
+    else if (severities.includes("moderate")) maxUrgency = "medium";
 
-    // Parse JSON from response
-    let predictions;
-    try {
-      // Try to extract JSON from the response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        predictions = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
-      predictions = {
-        predictions: [],
-        general_advice: content,
-        urgency: "medium"
-      };
-    }
+    const response = {
+      predictions: topPredictions,
+      general_advice: topPredictions.length > 0 
+        ? `Based on your symptoms (${symptoms.join(", ")}), the local model predicts ${topPredictions[0].disease_name} as the most likely condition. Please consult a doctor for a definitive diagnosis.`
+        : "No matching diseases found in our database for these symptoms.",
+      urgency: maxUrgency
+    };
 
     return new Response(
-      JSON.stringify(predictions),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
@@ -137,3 +150,4 @@ OUTPUT FORMAT (strict JSON):
     );
   }
 });
+

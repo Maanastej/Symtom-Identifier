@@ -19,15 +19,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('useAuth: Initializing...');
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('useAuth: getSession error:', error);
+      } else {
+        console.log('useAuth: Session retrieved:', session ? 'User logged in' : 'No user');
+      }
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch(err => {
+      console.error('useAuth: Fatal error in getSession:', err);
       setLoading(false);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('useAuth: Auth state changed:', event, session ? 'User present' : 'No user');
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);

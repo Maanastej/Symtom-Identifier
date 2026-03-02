@@ -13,10 +13,17 @@ import { toast } from 'sonner';
 
 
 export default function Dashboard() {
-  const { data: diseases = [], isLoading: diseasesLoading } = useDiseases();
-  const { data: reports = [], isLoading: reportsLoading, refetch: refetchReports } = useDiseaseReports();
-  const { data: alerts = [] } = useEpidemicAlerts();
-  
+  const { data: diseases = [], isLoading: diseasesLoading, error: diseasesError } = useDiseases();
+  const { data: reports = [], isLoading: reportsLoading, refetch: refetchReports, error: reportsError } = useDiseaseReports();
+  const { data: alerts = [], error: alertsError } = useEpidemicAlerts();
+
+  useEffect(() => {
+    if (diseasesError) console.error('Dashboard: Diseases fetch error:', diseasesError);
+    if (reportsError) console.error('Dashboard: Reports fetch error:', reportsError);
+    if (alertsError) console.error('Dashboard: Alerts fetch error:', alertsError);
+    console.log('Dashboard: State:', { diseasesLoading, reportsLoading, diseasesCount: diseases.length });
+  }, [diseasesLoading, reportsLoading, diseasesError, reportsError, alertsError, diseases.length]);
+
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [predictions, setPredictions] = useState<AIPrediction[]>([]);
   const [generalAdvice, setGeneralAdvice] = useState<string>('');
@@ -97,7 +104,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container py-6">
         <Tabs defaultValue="checker" className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-3">
@@ -137,19 +144,19 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value="map">
-            <DiseaseMap 
-              reports={reports} 
+            <DiseaseMap
+              reports={reports}
               onRefresh={refetchReports}
             />
           </TabsContent>
 
           <TabsContent value="alerts">
             <div className="grid lg:grid-cols-2 gap-6">
-              <EpidemicAlerts 
+              <EpidemicAlerts
                 alerts={alerts}
                 reports={reports}
               />
-              <DiseaseMap 
+              <DiseaseMap
                 reports={reports}
                 onRefresh={refetchReports}
               />

@@ -75,7 +75,7 @@ export function PredictionResults({ results, generalAdvice, urgency, onReportCas
           AI Prediction Results
         </CardTitle>
         <CardDescription>
-          Powered by GPT - Found {results.length} possible condition{results.length > 1 ? 's' : ''}
+          Powered by Custom Prediction Model - Found {results.length} possible condition{results.length > 1 ? 's' : ''}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -104,8 +104,8 @@ export function PredictionResults({ results, generalAdvice, urgency, onReportCas
 
         <Accordion type="single" collapsible defaultValue="item-0" className="space-y-2">
           {results.map((result, index) => (
-            <AccordionItem 
-              key={`${result.disease_name}-${index}`} 
+            <AccordionItem
+              key={`${result.disease_name}-${index}`}
               value={`item-${index}`}
               className="border rounded-lg px-4"
             >
@@ -118,8 +118,8 @@ export function PredictionResults({ results, generalAdvice, urgency, onReportCas
                     <div className="text-left">
                       <p className="font-semibold">{result.disease_name}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={severityColors[result.severity as keyof typeof severityColors] || severityColors.moderate}
                         >
                           {result.severity}
@@ -244,8 +244,8 @@ export function PredictionResults({ results, generalAdvice, urgency, onReportCas
                 </div>
 
                 {/* Report case button */}
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={() => onReportCase(result)}
                 >
