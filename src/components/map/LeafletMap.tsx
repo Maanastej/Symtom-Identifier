@@ -32,11 +32,11 @@ const INDIA_ZOOM = 5;
 
 function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
-  
+
   useEffect(() => {
     map.setView(center, zoom);
   }, [map, center, zoom]);
-  
+
   return null;
 }
 
@@ -53,45 +53,46 @@ function LeafletMap({ reports, severityColors, alertRegions = new Set(), center 
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController center={INDIA_CENTER} zoom={INDIA_ZOOM} />
-      
+
       {reports.map((report) => {
         const region = report.state || report.city || 'Unknown';
         const isAlerted = alertRegions.has(region);
         const baseColor = severityColors[report.diseases?.severity || 'moderate'];
         return (
-        <CircleMarker
-          key={report.id}
-          center={[Number(report.location_lat), Number(report.location_lng)]}
-          radius={isAlerted ? 12 : 8}
-          fillColor={isAlerted ? '#ff0000' : baseColor}
-          color={isAlerted ? '#ff0000' : baseColor}
-          weight={isAlerted ? 3 : 2}
-          opacity={0.8}
-          fillOpacity={0.6}
-        >
-          <Popup>
-            <div className="space-y-1">
-              <p className="font-semibold">{report.diseases?.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {report.city}, {report.state}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Reported: {new Date(report.reported_at).toLocaleDateString()}
-              </p>
-              <Badge 
-                variant="outline" 
-                className="text-xs"
-                style={{ 
-                  backgroundColor: `${severityColors[report.diseases?.severity || 'moderate']}20`,
-                  color: severityColors[report.diseases?.severity || 'moderate']
-                }}
-              >
-                {report.diseases?.severity}
-              </Badge>
-            </div>
-          </Popup>
-        </CircleMarker>
-      ))}
+          <CircleMarker
+            key={report.id}
+            center={[Number(report.location_lat), Number(report.location_lng)]}
+            radius={isAlerted ? 12 : 8}
+            fillColor={isAlerted ? '#ff0000' : baseColor}
+            color={isAlerted ? '#ff0000' : baseColor}
+            weight={isAlerted ? 3 : 2}
+            opacity={0.8}
+            fillOpacity={0.6}
+          >
+            <Popup>
+              <div className="space-y-1">
+                <p className="font-semibold">{report.diseases?.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {report.city}, {report.state}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Reported: {new Date(report.reported_at).toLocaleDateString()}
+                </p>
+                <Badge
+                  variant="outline"
+                  className="text-xs"
+                  style={{
+                    backgroundColor: `${severityColors[report.diseases?.severity || 'moderate']}20`,
+                    color: severityColors[report.diseases?.severity || 'moderate']
+                  }}
+                >
+                  {report.diseases?.severity}
+                </Badge>
+              </div>
+            </Popup>
+          </CircleMarker>
+        );
+      })}
     </MapContainer>
   );
 }
