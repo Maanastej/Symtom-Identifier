@@ -129,7 +129,7 @@ export default function Dashboard() {
           <TabsList className="grid w-full max-w-2xl grid-cols-4 gradient-card p-1 rounded-2xl shadow-soft border border-border/40">
             <TabsTrigger value="checker" className="flex items-center gap-2 rounded-xl py-2.5">
               <Stethoscope className="w-4 h-4" />
-              <span className="hidden sm:inline">Checker</span>
+              <span className="hidden sm:inline">Symptom Checker</span>
             </TabsTrigger>
             <TabsTrigger value="health" className="flex items-center gap-2 rounded-xl py-2.5">
               <Activity className="w-4 h-4" />
@@ -137,7 +137,7 @@ export default function Dashboard() {
             </TabsTrigger>
             <TabsTrigger value="map" className="flex items-center gap-2 rounded-xl py-2.5">
               <Map className="w-4 h-4" />
-              <span className="hidden sm:inline">Tracking</span>
+              <span className="hidden sm:inline">Disease Map</span>
             </TabsTrigger>
             <TabsTrigger value="alerts" className="flex items-center gap-2 rounded-xl py-2.5">
               <Bell className="w-4 h-4" />

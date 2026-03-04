@@ -76,20 +76,70 @@ serve(async (req) => {
       }
     }
 
-    const response = await fetch(apiUrl, {
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(bodyPayload),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
       console.error('AI Service Error:', errorData);
-      throw new Error(errorData.error || 'Failed to connect to AI service');
+      const errorMessage = typeof errorData.error === 'string'
+        ? errorData.error
+        : (errorData.error?.message || 'Failed to connect to AI service');
+      throw new Error(errorMessage);
     }
 
-    // Proxy the response stream
-    return new Response(response.body, {
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const reader = res.body!.getReader();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    (async () => {
+      try {
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          if (GEMINI_API_KEY) {
+            // Google API Format: data: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const jsonStr = line.slice(6).trim();
+                try {
+                  const json = JSON.parse(jsonStr);
+                  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                  if (text) {
+                    writer.write(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`));
+                  }
+                } catch (e) {
+                  // Partial JSON, keep in buffer
+                }
+              }
+            }
+          } else {
+            // Lovable/OpenAI Format: Already correct, just pass through or split by lines to be safe
+            writer.write(encoder.encode(buffer));
+            buffer = '';
+          }
+        }
+      } catch (err) {
+        console.error('Stream error:', err);
+      } finally {
+        writer.write(encoder.encode('data: [DONE]\n\n'));
+        writer.close();
+      }
+    })();
+
+    return new Response(readable, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
