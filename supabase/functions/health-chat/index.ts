@@ -45,28 +45,38 @@ serve(async (req) => {
 
     if (GEMINI_API_KEY) {
       // Reformat payload for Google AI API
+      // Using v1 endpoint which is more stable across regions
       apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`
       headers = { 'Content-Type': 'application/json' }
+
+      const systemPrompt = `You are an AI Health Assistant for "Medical Third Opinion", a platform that helps users identify symptoms and track their health.
+Your goals are:
+1. Provide helpful, accurate, and empathetic health and wellness advice.
+2. Explain medical terms in simple language.
+3. Encourage users to consult with real medical professionals for definitive diagnoses.
+4. Suggest using the platform's "Symptom Checker" or "Health Metrics" features when relevant.
+
+Strictly follow these rules:
+- DO NOT provide definitive prescriptions or dosages.
+- ALWAYS include a medical disclaimer if giving advice on symptoms.
+- If a user reports symptoms that sound like an emergency (chest pain, stroke signs, severe bleeding), urge them to CALL EMERGENCY SERVICES immediately.
+- Keep responses concise and use Markdown formatting for readability.`;
+
       bodyPayload = {
-        systemInstruction: {
-          parts: [{
-            text: `You are an AI Health Assistant for "Medical Third Opinion", a platform that helps users identify symptoms and track their health.
-          Your goals are:
-          1. Provide helpful, accurate, and empathetic health and wellness advice.
-          2. Explain medical terms in simple language.
-          3. Encourage users to consult with real medical professionals for definitive diagnoses.
-          4. Suggest using the platform's "Symptom Checker" or "Health Metrics" features when relevant.
-          
-          Strictly follow these rules:
-          - DO NOT provide definitive prescriptions or dosages.
-          - ALWAYS include a medical disclaimer if giving advice on symptoms.
-          - If a user reports symptoms that sound like an emergency (chest pain, stroke signs, severe bleeding), urge them to CALL EMERGENCY SERVICES immediately.
-          - Keep responses concise and use Markdown formatting for readability.` }]
-        },
-        contents: messages.map((m: any) => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }]
-        })),
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `SYSTEM INSTRUCTION: ${systemPrompt}\n\nPlease help the user with the following conversation.` }]
+          },
+          {
+            role: 'model',
+            parts: [{ text: 'Understood. I will act as a helpful and safe AI Health Assistant according to those instructions.' }]
+          },
+          ...messages.map((m: any) => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          }))
+        ],
         generationConfig: {
           temperature: 0.7,
           topP: 0.8,
