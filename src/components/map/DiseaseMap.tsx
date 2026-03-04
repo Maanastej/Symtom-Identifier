@@ -19,10 +19,17 @@ interface DiseaseReport {
   } | null;
 }
 
+import type { EpidemicAlert } from '@/lib/types';
+
 interface DiseaseMapProps {
   reports: DiseaseReport[];
+  alerts?: EpidemicAlert[];
   onRefresh?: () => void;
 }
+
+// India center coordinates (same as LeafletMap)
+const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
+const INDIA_ZOOM = 5;
 
 const severityColors: Record<string, string> = {
   mild: '#22c55e',
@@ -34,27 +41,27 @@ const severityColors: Record<string, string> = {
 // Lazy load the actual map component
 const LeafletMap = lazy(() => import('./LeafletMap'));
 
-export function DiseaseMap({ reports, onRefresh }: DiseaseMapProps) {
+export function DiseaseMap({ reports, alerts, onRefresh }: DiseaseMapProps) {
   const [filter, setFilter] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<string>('7days');
-  
+
   // Get unique diseases for filter
   const uniqueDiseases = Array.from(
     new Set(reports.map(r => r.diseases?.name).filter(Boolean))
   );
-  
+
   // Filter reports
   const filteredReports = reports.filter(report => {
     // Disease filter
     if (filter !== 'all' && report.diseases?.name !== filter) {
       return false;
     }
-    
+
     // Time filter
     const reportDate = new Date(report.reported_at);
     const now = new Date();
     const daysDiff = (now.getTime() - reportDate.getTime()) / (1000 * 60 * 60 * 24);
-    
+
     switch (timeFilter) {
       case '24h':
         return daysDiff <= 1;
@@ -77,6 +84,24 @@ export function DiseaseMap({ reports, onRefresh }: DiseaseMapProps) {
   const hotspots = Object.entries(regionCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
+
+  // determine alert regions and optionally center map on them
+  const alertRegions = new Set((alerts || []).map(a => a.region));
+  const alertReports = filteredReports.filter(r => alertRegions.has(r.state || r.city || 'Unknown'));
+
+  // compute a rough center if there are alerted reports
+  let mapCenter: [number, number] = INDIA_CENTER;
+  let mapZoom = INDIA_ZOOM;
+  if (alertReports.length > 0) {
+    const avgLat =
+      alertReports.reduce((sum, r) => sum + Number(r.location_lat), 0) /
+      alertReports.length;
+    const avgLng =
+      alertReports.reduce((sum, r) => sum + Number(r.location_lng), 0) /
+      alertReports.length;
+    mapCenter = [avgLat, avgLng];
+    mapZoom = 6;
+  }
 
   return (
     <Card className="h-full">
@@ -111,7 +136,7 @@ export function DiseaseMap({ reports, onRefresh }: DiseaseMapProps) {
               ))}
             </SelectContent>
           </Select>
-          
+
           <Select value={timeFilter} onValueChange={setTimeFilter}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Time period" />
@@ -132,7 +157,13 @@ export function DiseaseMap({ reports, onRefresh }: DiseaseMapProps) {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           }>
-            <LeafletMap reports={filteredReports} severityColors={severityColors} />
+            <LeafletMap
+              reports={filteredReports}
+              severityColors={severityColors}
+              alertRegions={alertRegions}
+              center={mapCenter}
+              zoom={mapZoom}
+            />
           </Suspense>
         </div>
 
@@ -158,8 +189,8 @@ export function DiseaseMap({ reports, onRefresh }: DiseaseMapProps) {
           <span className="font-medium">Severity:</span>
           {Object.entries(severityColors).map(([severity, color]) => (
             <span key={severity} className="flex items-center gap-1">
-              <span 
-                className="w-3 h-3 rounded-full" 
+              <span
+                className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: color }}
               />
               {severity}

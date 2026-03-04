@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { isSupabaseReady } from '@/integrations/supabase/client';
 import { Header } from '@/components/layout/Header';
 import { SymptomInput } from '@/components/symptom-checker/SymptomInput';
 import { PredictionResults, AIPrediction } from '@/components/symptom-checker/PredictionResults';
@@ -10,12 +11,51 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stethoscope, Map, Bell, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { computeAlertsFromReports } from '@/lib/utils';
 
 
 export default function Dashboard() {
   const { data: diseases = [], isLoading: diseasesLoading, error: diseasesError } = useDiseases();
+  const supabaseOk = isSupabaseReady();
   const { data: reports = [], isLoading: reportsLoading, refetch: refetchReports, error: reportsError } = useDiseaseReports();
   const { data: alerts = [], error: alertsError } = useEpidemicAlerts();
+
+  // compute client-side alerts when the database returns none
+  const derivedAlerts = computeAlertsFromReports(reports);
+  const combinedAlerts = alerts.length > 0 ? alerts : derivedAlerts;
+
+  // keep the server table in sync by upserting any derived alerts
+  useEffect(() => {
+    if (derivedAlerts.length === 0) return;
+
+    const upsert = async () => {
+      try {
+        // prepare rows with disease_id obtained from a matching report
+        const rows = derivedAlerts.map(a => {
+          const match = reports.find(
+            r =>
+              (r.state || r.city || 'Unknown') === a.region &&
+              r.diseases?.name === a.diseases?.name
+          );
+          return {
+            id: a.id,
+            disease_id: match?.disease_id || '',
+            region: a.region,
+            case_count: a.case_count,
+            alert_level: a.alert_level,
+            threshold_exceeded: a.threshold_exceeded,
+            updated_at: a.updated_at,
+          };
+        });
+
+        await supabase.from('epidemic_alerts').upsert(rows, { onConflict: ['id'] });
+      } catch (e) {
+        console.error('Failed to upsert derived alerts', e);
+      }
+    };
+
+    upsert();
+  }, [derivedAlerts]);
 
   useEffect(() => {
     if (diseasesError) console.error('Dashboard: Diseases fetch error:', diseasesError);
@@ -93,6 +133,16 @@ export default function Dashboard() {
     setReportDialogOpen(true);
   };
 
+  if (!supabaseOk) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-600">
+          Supabase configuration missing. Check your <code>.env</code> file.
+        </p>
+      </div>
+    );
+  }
+
   if (diseasesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -153,11 +203,12 @@ export default function Dashboard() {
           <TabsContent value="alerts">
             <div className="grid lg:grid-cols-2 gap-6">
               <EpidemicAlerts
-                alerts={alerts}
+                alerts={combinedAlerts}
                 reports={reports}
               />
               <DiseaseMap
                 reports={reports}
+                alerts={combinedAlerts}
                 onRefresh={refetchReports}
               />
             </div>

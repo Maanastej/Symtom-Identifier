@@ -3,27 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Bell, AlertTriangle, TrendingUp, Shield } from 'lucide-react';
 
-interface EpidemicAlert {
-  id: string;
-  region: string;
-  case_count: number;
-  alert_level: string;
-  threshold_exceeded: boolean;
-  updated_at: string;
-  diseases: {
-    name: string;
-    severity: string;
-  } | null;
-}
-
-interface DiseaseReport {
-  disease_id: string;
-  diseases: {
-    name: string;
-    is_communicable: boolean;
-  } | null;
-  reported_at: string;
-}
+import type { EpidemicAlert, DiseaseReport } from '@/lib/types';
+import { computeAlertsFromReports } from '@/lib/utils';
 
 interface EpidemicAlertsProps {
   alerts: EpidemicAlert[];
@@ -45,6 +26,11 @@ const alertLevelIcons = {
 };
 
 export function EpidemicAlerts({ alerts, reports }: EpidemicAlertsProps) {
+  // if no alerts fetched from server, derive them locally
+  const derived = computeAlertsFromReports(reports);
+  const activeAlerts = alerts.length > 0 ? alerts : derived;
+  const usingDerived = alerts.length === 0 && derived.length > 0;
+
   // Calculate real-time stats from reports
   const now = new Date();
   const last7Days = reports.filter(r => {
@@ -77,6 +63,11 @@ export function EpidemicAlerts({ alerts, reports }: EpidemicAlertsProps) {
         </div>
         <CardDescription>
           Real-time monitoring of disease outbreaks
+          {usingDerived && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              (calculated from reports)
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -97,10 +88,10 @@ export function EpidemicAlerts({ alerts, reports }: EpidemicAlertsProps) {
         </div>
 
         {/* Active alerts */}
-        {alerts.length > 0 && (
+        {activeAlerts.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium">Active Alerts</p>
-            {alerts.map((alert) => {
+            {activeAlerts.map((alert) => {
               const Icon = alertLevelIcons[alert.alert_level as keyof typeof alertLevelIcons] || AlertTriangle;
               return (
                 <Alert 

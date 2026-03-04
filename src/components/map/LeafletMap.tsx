@@ -21,6 +21,9 @@ interface DiseaseReport {
 interface LeafletMapProps {
   reports: DiseaseReport[];
   severityColors: Record<string, string>;
+  alertRegions?: Set<string>;
+  center?: [number, number];
+  zoom?: number;
 }
 
 // India center coordinates
@@ -37,11 +40,11 @@ function MapController({ center, zoom }: { center: [number, number]; zoom: numbe
   return null;
 }
 
-function LeafletMap({ reports, severityColors }: LeafletMapProps) {
+function LeafletMap({ reports, severityColors, alertRegions = new Set(), center = INDIA_CENTER, zoom = INDIA_ZOOM }: LeafletMapProps) {
   return (
     <MapContainer
-      center={INDIA_CENTER}
-      zoom={INDIA_ZOOM}
+      center={center}
+      zoom={zoom}
       style={{ height: '100%', width: '100%' }}
       scrollWheelZoom={true}
     >
@@ -51,14 +54,18 @@ function LeafletMap({ reports, severityColors }: LeafletMapProps) {
       />
       <MapController center={INDIA_CENTER} zoom={INDIA_ZOOM} />
       
-      {reports.map((report) => (
+      {reports.map((report) => {
+        const region = report.state || report.city || 'Unknown';
+        const isAlerted = alertRegions.has(region);
+        const baseColor = severityColors[report.diseases?.severity || 'moderate'];
+        return (
         <CircleMarker
           key={report.id}
           center={[Number(report.location_lat), Number(report.location_lng)]}
-          radius={8}
-          fillColor={severityColors[report.diseases?.severity || 'moderate']}
-          color={severityColors[report.diseases?.severity || 'moderate']}
-          weight={2}
+          radius={isAlerted ? 12 : 8}
+          fillColor={isAlerted ? '#ff0000' : baseColor}
+          color={isAlerted ? '#ff0000' : baseColor}
+          weight={isAlerted ? 3 : 2}
           opacity={0.8}
           fillOpacity={0.6}
         >
