@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   console.log("Health Chatbot Edge Function - Version 1.5.2 Initiated");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
