@@ -1,178 +1,95 @@
-# 🩺 Symptom Identifier
+# Medical Third Opinion
 
-A full-stack AI-powered disease prediction and epidemic tracking web application built with **React**, **Vite**, **Supabase**, and a custom **KNN prediction model**.
+An advanced, AI-powered health intelligence platform designed to empower users with symptom analysis, real-time disease tracking, and comprehensive health monitoring.
 
----
+## 🌟 Key Features
 
-## ✨ Features
+### 1. **AI-Powered Symptom Checker**
+- **KNN Prediction Engine:** Uses a K-Nearest Neighbors model trained on a comprehensive dataset of 55+ diseases to provide accurate potential diagnoses.
+- **Urgency Assessment:** Evaluates symptoms to provide immediate advice (e.g., "Seek Emergency Care", "Consult a Specialist").
+- **Actionable Advice:** Provides detailed precautions, medications, and general health tips for predicted conditions.
 
-### 🔍 Symptom Checker
-- Enter your symptoms to receive AI-powered disease predictions
-- KNN (K-Nearest Neighbours) model trained on 55+ diseases from the Supabase `diseases` table
-- Fuzzy & weighted symptom matching for accurate predictions
-- Confidence scores, severity levels, matched symptoms, precautions & medications shown per prediction
-- Links to Apollo Pharmacy, 1mg, PharmEasy & Netmeds for medications
-- Report any predicted case directly for epidemic tracking
+### 2. **AI Health Chatbot**
+- **24/7 Virtual Assistant:** Conversational AI powered by Gemini 1.5 Flash for health queries, wellness tips, and medical terminology explanations.
+- **Streaming Responses:** Real-time conversational interface with chat history persistence.
 
-### 🗺️ Disease Map
-- Interactive Leaflet.js map showing disease case reports across India
-- Filter by disease type and time period (24h / 7 days / 30 days / all time)
-- Severity-coded map markers; alert regions are highlighted in red
-- Top hotspot regions listed with case counts
-- Real-time updates via Supabase Realtime subscriptions
+### 3. **Smart Health Monitoring**
+- **Vitals Logging:** Log heart rate, SpO2, sleep patterns, steps, and body temperature.
+- **Trend Analytics:** Interactive charts (Recharts) visualizing 7-day health trends.
+- **Weekly Summaries:** Aggregated reports on health activity and vitals.
+- **Critical Alerts:** Real-time browser notifications for dangerous vital sign deviations (e.g., Tachycardia, Low SpO2).
 
-### 🔔 Epidemic Alerts
-- Real-time monitoring of disease outbreak thresholds by region
-- Auto-generated alerts when case counts exceed configurable thresholds
-- Colour-coded alert levels: Low → Medium → High → Critical
-- Disease distribution bar charts (last 7 days)
-- Communicable disease breakdown stats
+### 4. **Geospatial Outbreak Tracking**
+- **Interactive Map:** Real-time visualization of reported disease cases across India.
+- **Epidemic Alerts:** Automated system that triggers alerts when case density in a region exceeds safety thresholds.
+- **Live Updates:** Real-time reporting and map synchronization via Supabase.
 
-### 👤 User Authentication & Profiles
-- Supabase Auth (email/password + OAuth)
-- Auto-created user profile on signup
-- Row Level Security (RLS) on all tables
+### 5. **Premium User Experience**
+- **Rich Aesthetics:** Modern Teal/Medical design theme with Glassmorphism, tailored gradients, and premium animations (Framer Motion).
+- **Comprehensive Landing Page:** Detailed overview of features, how it works, and testimonials.
+- **Health Profile:** Maintain a baseline medical profile (Blood Group, Height, Weight, etc.) for more accurate AI predictions.
 
----
+## 🛠️ Technology Stack
 
-## 🧠 Prediction Model
-
-The prediction engine is a **custom KNN model** with fuzzy matching:
-
-| Component | Detail |
-|---|---|
-| Algorithm | K-Nearest Neighbours (k=5) with weighted scoring |
-| Training data | `diseases` table in Supabase (55+ diseases, 400+ symptoms) |
-| Matching | Fuzzy + word-level partial matching |
-| Scoring | 60% user-symptom match ratio + 40% disease-symptom coverage |
-| Confidence | Scaled 0–100%, with bonus for 3+ matched symptoms |
-| Location | Runs server-side via **Supabase Edge Function** (`predict-disease`) |
-
----
-
-## 🗄️ Database Schema
-
-| Table | Purpose |
-|---|---|
-| `diseases` | Master list of 55+ diseases with symptoms, precautions, medications |
-| `disease_reports` | Case reports submitted by users (with lat/lng for map) |
-| `epidemic_alerts` | Auto-generated alerts when case thresholds are exceeded by region |
-| `profiles` | User profile data (auto-created on signup) |
-
----
+- **Frontend:** React, Vite, Tailwind CSS, Framer Motion, Lucide React
+- **UI Components:** Shadcn/UI (Radix UI)
+- **State Management:** React Query (@tanstack/react-query)
+- **Database & Auth:** Supabase
+- **Backend Logic:** Supabase Edge Functions (Deno, TypeScript)
+- **AI Model:** Gemini 1.5 Flash (via API Gateway)
+- **Charts:** Recharts
+- **Mapping:** Leaflet.js
 
 ## 🚀 Getting Started
 
 ### Prerequisites
+- Node.js (v18+)
+- Supabase Project
 
-- [Node.js](https://nodejs.org/) v18+
-- [npm](https://www.npmjs.com/)
-- A [Supabase](https://supabase.com/) project
-
-### Installation
+### Setup Instructions
 
 1. **Clone the repository:**
-   ```sh
-   git clone <YOUR_GIT_URL>
-   cd symptom-identifier
+   ```bash
+   git clone <repository-url>
+   cd symptom-identifier-main
    ```
 
 2. **Install dependencies:**
-   ```sh
+   ```bash
    npm install
    ```
 
-3. **Set up environment variables:**
-
-   Create a `.env` file in the project root:
+3. **Set up Environment Variables:**
+   Create a `.env` file in the root directory:
    ```env
-   VITE_SUPABASE_URL=https://<your-project-id>.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=<your-anon-public-key>
-   VITE_SUPABASE_PROJECT_ID=<your-project-id>
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-4. **Set up the database schema:**
+4. **Initialize Database:**
+   Run the SQL scripts in `supabase/migrations/` and `supabase/seed_diseases.sql` inside your Supabase SQL Editor.
 
-   In your Supabase dashboard → **SQL Editor**, run:
-   ```
-   supabase/migrations/20260117144352_*.sql
-   ```
-
-5. **Seed the diseases dataset (required for predictions):**
-
-   In your Supabase dashboard → **SQL Editor**, run the full contents of:
-   ```
-   supabase/seed_diseases.sql
-   ```
-   This seeds **55+ diseases** and sample epidemic data for the map/alerts tabs.
-
-6. **Deploy the prediction Edge Function:**
-   ```sh
-   npx supabase functions deploy predict-disease --project-ref <your-project-id>
+5. **Deploy Edge Functions:**
+   ```bash
+   supabase functions deploy predict-disease
+   supabase functions deploy health-chat
    ```
 
-7. **Start the development server:**
-   ```sh
+6. **Run the application:**
+   ```bash
    npm run dev
    ```
 
----
+## 📊 Database Schema
 
-## 🛠️ Tech Stack
+The platform uses a robust relational schema in Supabase:
+- `diseases`: Core dataset for the prediction engine.
+- `disease_reports`: User-submitted disease reports for map tracking.
+- `epidemic_alerts`: Automatically generated regional alerts.
+- `profiles`: User health profiles and metadata.
+- `health_metrics`: Time-series data for vitals and activity tracking.
+- `chat_messages`: Persistent history for the AI health assistant.
 
-| Layer | Technology |
-|---|---|
-| Frontend | [React 18](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/) |
-| Build Tool | [Vite](https://vitejs.dev/) |
-| Styling | [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
-| Map | [React Leaflet](https://react-leaflet.js.org/) + OpenStreetMap |
-| Backend / DB | [Supabase](https://supabase.com/) (PostgreSQL + Auth + Realtime) |
-| Prediction | Custom KNN model via [Supabase Edge Functions](https://supabase.com/docs/guides/functions) (Deno) |
-| State / Data | [TanStack Query (React Query)](https://tanstack.com/query) |
-| Notifications | [Sonner](https://sonner.emilkowal.ski/) |
+## ⚖️ Disclaimer
 
----
-
-## 📁 Project Structure
-
-```
-src/
-├── components/
-│   ├── symptom-checker/   # Symptom input + prediction results
-│   ├── map/               # Disease map (Leaflet)
-│   ├── epidemic/          # Epidemic alerts panel
-│   ├── report/            # Report case dialog
-│   └── layout/            # Header, navigation
-├── hooks/
-│   └── useDiseases.tsx    # React Query hooks for Supabase data
-├── integrations/
-│   └── supabase/          # Supabase client + TypeScript types
-├── lib/
-│   ├── knn.ts             # KNN prediction algorithm
-│   ├── types.ts           # Shared TypeScript types
-│   └── utils.ts           # Alert calculation utilities
-└── pages/
-    └── Dashboard.tsx       # Main application page
-
-supabase/
-├── functions/
-│   └── predict-disease/   # Deno Edge Function for server-side KNN
-├── migrations/            # Database schema
-└── seed_diseases.sql      # 55+ disease training data + sample reports
-```
-
----
-
-## 📝 Recent Changes
-
-- ✅ Fixed **Disease Map** tab crash (`INDIA_CENTER` constant missing + `alerts` prop not destructured)
-- ✅ Fixed **Alerts** tab crash (same root cause as above)
-- ✅ **Expanded diseases database** from 10 → **55+ diseases** across 10 categories
-- ✅ Added **sample disease reports** across 7 Indian states for map visualization
-- ✅ Added **7 seed epidemic alerts** so the Alerts tab shows real data
-
----
-
-## ⚠️ Disclaimer
-
-This application is for informational and educational purposes only. Predictions are AI-generated and **should not replace professional medical advice**. Always consult a qualified healthcare provider for medical diagnosis.
+**Medical Third Opinion is for informational and educational purposes only.** It is NOT a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.
