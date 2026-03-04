@@ -1,1 +1,7 @@
 project_id = "uwgipuiuztawhcxmrdne"
+
+[functions.health-chat]
+verify_jwt = false
+
+[functions.predict-disease]
+verify_jwt = false

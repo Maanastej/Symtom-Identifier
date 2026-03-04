@@ -46,21 +46,27 @@ export default function Dashboard() {
     if (derivedAlerts.length === 0) return;
     const upsert = async () => {
       try {
-        const rows = derivedAlerts.map(a => {
-          const match = reports.find(
-            r => (r.state || r.city || 'Unknown') === a.region && r.diseases?.name === a.diseases?.name
-          );
-          return {
-            id: a.id,
-            disease_id: match?.disease_id || '',
-            region: a.region,
-            case_count: a.case_count,
-            alert_level: a.alert_level,
-            threshold_exceeded: a.threshold_exceeded,
-            updated_at: a.updated_at,
-          };
-        });
-        await supabase.from('epidemic_alerts').upsert(rows, { onConflict: ['id'] });
+        const rows = derivedAlerts
+          .map(a => {
+            const match = reports.find(
+              r => (r.state || r.city || 'Unknown') === a.region && r.diseases?.name === a.diseases?.name
+            );
+            if (!match?.disease_id) return null;
+            return {
+              id: a.id,
+              disease_id: match.disease_id,
+              region: a.region,
+              case_count: a.case_count,
+              alert_level: a.alert_level,
+              threshold_exceeded: a.threshold_exceeded,
+              updated_at: a.updated_at,
+            };
+          })
+          .filter((row): row is NonNullable<typeof row> => row !== null);
+
+        if (rows.length > 0) {
+          await supabase.from('epidemic_alerts').upsert(rows, { onConflict: ['id'] });
+        }
       } catch (e) {
         console.error('Failed to upsert derived alerts', e);
       }
