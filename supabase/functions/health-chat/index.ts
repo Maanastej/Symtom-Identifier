@@ -6,6 +6,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log("Health Chatbot Edge Function - Version 1.5.2 Initiated");
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -44,9 +45,8 @@ serve(async (req) => {
     }
 
     if (GEMINI_API_KEY) {
-      // Reformat payload for Google AI API
-      // Using v1 endpoint which is more stable across regions
-      apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`
+      // Using v1beta and the 'latest' alias for maximum compatibility
+      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`
       headers = { 'Content-Type': 'application/json' }
 
       const systemPrompt = `You are an AI Health Assistant for "Medical Third Opinion", a platform that helps users identify symptoms and track their health.
