@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [predicting, setPredicting] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<AIPrediction | null>(null);
+  const [activeTab, setActiveTab] = useState('checker');
 
   // Compute derived alerts for the map & epidemic tab
   const derivedAlerts = computeAlertsFromReports(reports);
@@ -122,10 +123,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header />
+      <Header onTabChange={setActiveTab} />
 
       <main className="container py-6">
-        <Tabs defaultValue="checker" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full max-w-2xl grid-cols-4 gradient-card p-1 rounded-2xl shadow-soft border border-border/40">
             <TabsTrigger value="checker" className="flex items-center gap-2 rounded-xl py-2.5">
               <Stethoscope className="w-4 h-4" />

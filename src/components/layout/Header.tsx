@@ -6,9 +6,10 @@ import { Heart, LogOut, User, Menu } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick?: () => void;
+  onTabChange?: (tab: string) => void;
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({ onMenuClick, onTabChange }: HeaderProps) {
   const { user, signOut } = useAuth();
 
   const initials = user?.user_metadata?.full_name
@@ -35,15 +36,24 @@ export function Header({ onMenuClick }: HeaderProps) {
         </div>
 
         <nav className="hidden md:flex items-center gap-6">
-          <a href="/" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={() => onTabChange?.('checker')}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
             Symptom Checker
-          </a>
-          <a href="/map" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          </button>
+          <button
+            onClick={() => onTabChange?.('map')}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
             Disease Map
-          </a>
-          <a href="/alerts" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          </button>
+          <button
+            onClick={() => onTabChange?.('alerts')}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
             Alerts
-          </a>
+          </button>
         </nav>
 
         <DropdownMenu>

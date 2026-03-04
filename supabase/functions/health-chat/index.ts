@@ -43,10 +43,9 @@ serve(async (req) => {
       stream: true,
     }
 
-    // IF the user provided a direct Gemini API key, use the Google API instead
     if (GEMINI_API_KEY) {
       // Reformat payload for Google AI API
-      apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`
+      apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`
       headers = { 'Content-Type': 'application/json' }
       bodyPayload = {
         systemInstruction: {

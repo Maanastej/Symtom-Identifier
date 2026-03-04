@@ -15,13 +15,13 @@ function normalizeSymptom(symptom: string): string {
 function fuzzyMatch(userSymptom: string, diseaseSymptom: string): boolean {
   const user = normalizeSymptom(userSymptom);
   const disease = normalizeSymptom(diseaseSymptom);
-  
+
   if (user === disease) return true;
   if (user.includes(disease) || disease.includes(user)) return true;
-  
+
   const userWords = user.split(' ');
   const diseaseWords = disease.split(' ');
-  
+
   for (const uw of userWords) {
     for (const dw of diseaseWords) {
       if (uw.length > 3 && dw.length > 3 && (uw.includes(dw) || dw.includes(uw))) {
@@ -29,14 +29,14 @@ function fuzzyMatch(userSymptom: string, diseaseSymptom: string): boolean {
       }
     }
   }
-  
+
   return false;
 }
 
 function calculatePrediction(userSymptoms: string[], diseaseSymptoms: string[]) {
   const matched: string[] = [];
   const matchedDiseaseSymptoms = new Set<string>();
-  
+
   for (const userSymptom of userSymptoms) {
     for (const diseaseSymptom of diseaseSymptoms) {
       if (!matchedDiseaseSymptoms.has(diseaseSymptom) && fuzzyMatch(userSymptom, diseaseSymptom)) {
@@ -46,15 +46,15 @@ function calculatePrediction(userSymptoms: string[], diseaseSymptoms: string[]) 
       }
     }
   }
-  
+
   if (userSymptoms.length === 0) return { score: 0, matched: [] };
-  
+
   const userMatchRatio = matched.length / userSymptoms.length;
   const diseaseMatchRatio = matchedDiseaseSymptoms.size / diseaseSymptoms.length;
-  
+
   // Weighted score favor matching user symptoms
   const score = (userMatchRatio * 0.6) + (diseaseMatchRatio * 0.4);
-  
+
   return { score, matched };
 }
 
@@ -67,7 +67,7 @@ serve(async (req) => {
 
   try {
     const { symptoms } = await req.json();
-    
+
     if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
       return new Response(
         JSON.stringify({ error: "Please provide symptoms as an array" }),
@@ -78,9 +78,11 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    console.log(`Connecting to Supabase at: ${supabaseUrl}`);
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch diseases from database
+    console.log("Fetching diseases from database...");
     const { data: diseases, error: fetchError } = await supabase
       .from("diseases")
       .select("*");
@@ -97,13 +99,13 @@ serve(async (req) => {
     // Run prediction model
     const predictionsList = diseases.map(disease => {
       const { score, matched } = calculatePrediction(symptoms, disease.symptoms || []);
-      
+
       // Calculate confidence (0-100)
       const confidence = Math.min(100, Math.round(
-        score * 100 * 
+        score * 100 *
         (matched.length >= 3 ? 1.2 : matched.length >= 2 ? 1.0 : 0.8)
       ));
-      
+
       return {
         disease_name: disease.name,
         confidence: confidence,
@@ -132,7 +134,7 @@ serve(async (req) => {
 
     const response = {
       predictions: topPredictions,
-      general_advice: topPredictions.length > 0 
+      general_advice: topPredictions.length > 0
         ? `Based on your symptoms (${symptoms.join(", ")}), the local model predicts ${topPredictions[0].disease_name} as the most likely condition. Please consult a doctor for a definitive diagnosis.`
         : "No matching diseases found in our database for these symptoms.",
       urgency: maxUrgency
