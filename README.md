@@ -4,13 +4,14 @@ An advanced, AI-powered health intelligence platform designed to empower users w
 
 ## 🌟 Key Features
 
-### 1. **AI-Powered Symptom Checker**
-- **KNN Prediction Engine:** Uses a K-Nearest Neighbors model trained on a comprehensive dataset of 55+ diseases to provide accurate potential diagnoses.
+### 1. **Agentic AI Symptom Checker**
+- **Follow-up Intelligence:** Powered by **Groq (llama-3.3-70b-versatile)**, the AI acts as an autonomous agent. If your symptoms are vague, it actively asks you follow-up questions to narrow down the diagnosis before making a prediction.
+- **Massive Medical Dataset:** The underlying database uses a robust dictionary of 100+ highly detailed medical conditions, including respiratory, cardiovascular, neurological, infectious, and oncological diseases.
 - **Urgency Assessment:** Evaluates symptoms to provide immediate advice (e.g., "Seek Emergency Care", "Consult a Specialist").
 - **Actionable Advice:** Provides detailed precautions, medications, and general health tips for predicted conditions.
 
-### 2. **AI Health Chatbot**
-- **24/7 Virtual Assistant:** Conversational AI powered by Gemini 1.5 Flash for health queries, wellness tips, and medical terminology explanations.
+### 2. **Proactive AI Health Assistant**
+- **Agentic Chatbot:** The AI chatbot utilizes Groq and native tool-calling to fetch your live health metrics and profile data on the fly. It is instructed to proactively ask probing medical questions to get to the root of your issues.
 - **Streaming Responses:** Real-time conversational interface with chat history persistence.
 
 ### 3. **Smart Health Monitoring**
@@ -20,7 +21,7 @@ An advanced, AI-powered health intelligence platform designed to empower users w
 - **Critical Alerts:** Real-time browser notifications for dangerous vital sign deviations (e.g., Tachycardia, Low SpO2).
 
 ### 4. **Geospatial Outbreak Tracking**
-- **Interactive Map:** Real-time visualization of reported disease cases across India.
+- **Sleek Minimalist Map:** A highly polished, interactive map powered by Leaflet and CartoDB Dark Matter tiles, visualizing real-time disease cases across regions without clutter.
 - **Epidemic Alerts:** Automated system that triggers alerts when case density in a region exceeds safety thresholds.
 - **Live Updates:** Real-time reporting and map synchronization via Supabase.
 
@@ -34,17 +35,18 @@ An advanced, AI-powered health intelligence platform designed to empower users w
 - **Frontend:** React, Vite, Tailwind CSS, Framer Motion, Lucide React
 - **UI Components:** Shadcn/UI (Radix UI)
 - **State Management:** React Query (@tanstack/react-query)
-- **Database & Auth:** Supabase
+- **Database & Auth:** Supabase (PostgreSQL)
 - **Backend Logic:** Supabase Edge Functions (Deno, TypeScript)
-- **AI Model:** Gemini 1.5 Flash (via API Gateway)
+- **AI Model:** Groq API (llama-3.3-70b-versatile) for high-speed, agentic inference
 - **Charts:** Recharts
-- **Mapping:** Leaflet.js
+- **Mapping:** Leaflet.js with CartoDB Dark Matter
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js (v18+)
 - Supabase Project
+- Groq API Key
 
 ### Setup Instructions
 
@@ -70,9 +72,11 @@ An advanced, AI-powered health intelligence platform designed to empower users w
    Run the SQL scripts in `supabase/migrations/` and `supabase/seed_diseases.sql` inside your Supabase SQL Editor.
 
 5. **Deploy Edge Functions:**
+   You must set the Groq API key in your Supabase secrets first:
    ```bash
-   supabase functions deploy predict-disease
-   supabase functions deploy health-chat
+   npx supabase secrets set GROQ_API_KEY=your_groq_api_key
+   npx supabase functions deploy predict-disease
+   npx supabase functions deploy health-chat
    ```
 
 6. **Run the application:**
@@ -83,7 +87,7 @@ An advanced, AI-powered health intelligence platform designed to empower users w
 ## 📊 Database Schema
 
 The platform uses a robust relational schema in Supabase:
-- `diseases`: Core dataset for the prediction engine.
+- `diseases`: Massive core dataset for the prediction engine (100+ conditions).
 - `disease_reports`: User-submitted disease reports for map tracking.
 - `epidemic_alerts`: Automatically generated regional alerts.
 - `profiles`: User health profiles and metadata.
