@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Tool definitions for Gemini
+// Tool definitions for Groq
 const tools = [
   {
     function_declarations: [
