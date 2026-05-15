@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, X, Send, Loader2, Bot, User, Sparkles, Trash2 } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, User, Sparkles, Trash2, Activity, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
@@ -22,11 +22,13 @@ async function streamChat({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  
   const resp = await fetch(CHAT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({ messages }),
   });
@@ -70,7 +72,8 @@ async function streamChat({
 const SUGGESTIONS = [
   'What are signs of dehydration?',
   'How can I improve my sleep?',
-  'What does high blood pressure mean?',
+  'Check my latest health metrics',
+  'Search for flu symptoms',
 ];
 
 export function HealthChatbot() {
@@ -98,8 +101,13 @@ export function HealthChatbot() {
 
   useEffect(() => { if (open) loadHistory(); }, [open, loadHistory]);
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, open]);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [messages, open, loading]);
 
   const saveMessage = async (role: 'user' | 'assistant', content: string) => {
     if (!user) return;
@@ -155,51 +163,62 @@ export function HealthChatbot() {
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full gradient-hero text-white shadow-glow flex items-center justify-center transition-all duration-300 hover:scale-105",
-          open && "scale-0 opacity-0 pointer-events-none"
+          "fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full gradient-hero text-white shadow-glow flex items-center justify-center transition-all duration-500 hover:scale-110 active:scale-95",
+          open && "rotate-90 opacity-0 pointer-events-none"
         )}
         aria-label="Open health assistant"
       >
-        <MessageCircle className="w-6 h-6" />
+        <MessageCircle className="w-7 h-7" />
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary border-2 border-white rounded-full animate-pulse" />
       </button>
 
       <div className={cn(
-        "fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-3rem)] rounded-2xl border border-border/60 bg-card shadow-card flex flex-col overflow-hidden transition-all duration-300 origin-bottom-right",
-        open ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"
+        "fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-2rem)] h-[650px] max-h-[calc(100vh-4rem)] rounded-[2.5rem] border border-white/20 bg-card/80 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden transition-all duration-500 origin-bottom-right",
+        open ? "translate-y-0 scale-100 opacity-100" : "translate-y-10 scale-95 opacity-0 pointer-events-none"
       )}>
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 gradient-hero text-white flex-shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-            <Bot className="w-4 h-4" />
+        <div className="flex items-center gap-3 px-6 py-5 gradient-hero text-white flex-shrink-0 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 bg-white/5 rounded-full -mr-4 -mt-4 blur-2xl" />
+          <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+            <Bot className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">Health Assistant</p>
-            <p className="text-white/70 text-xs">Powered by AI</p>
+            <p className="font-bold text-base">Agentic Health Assistant</p>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <p className="text-white/80 text-xs font-medium">Online & Ready to Help</p>
+            </div>
           </div>
-          {messages.length > 0 && (
-            <button onClick={clearHistory} className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors" title="Clear chat history">
-              <Trash2 className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <button onClick={clearHistory} className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all active:scale-90" title="Clear chat history">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button onClick={() => setOpen(false)} className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all active:scale-90">
+              <X className="w-5 h-5" />
             </button>
-          )}
-          <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          </div>
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-primary/20">
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-primary" />
+            <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-in fade-in zoom-in duration-500">
+              <div className="w-20 h-20 rounded-[2rem] bg-primary/10 flex items-center justify-center relative">
+                <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold shadow-lg">AI</div>
               </div>
-              <div>
-                <p className="font-semibold text-sm text-foreground">Hi! I'm your health assistant</p>
-                <p className="text-xs text-muted-foreground mt-1">Ask me anything about health & wellness</p>
+              <div className="space-y-2">
+                <p className="font-bold text-xl text-foreground tracking-tight">How can I help you today?</p>
+                <p className="text-sm text-muted-foreground px-8 leading-relaxed">I'm your intelligent medical companion. I can analyze symptoms, check your vitals, and help you report health concerns.</p>
               </div>
-              <div className="w-full space-y-2 mt-2">
+              <div className="w-full space-y-2.5 max-w-[280px]">
                 {SUGGESTIONS.map(s => (
-                  <button key={s} onClick={() => send(s)} className="w-full text-left text-xs px-3 py-2.5 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 text-foreground transition-colors">
+                  <button key={s} onClick={() => send(s)} className="w-full text-left text-xs font-medium px-4 py-3.5 rounded-2xl border border-border/40 bg-white/50 hover:bg-primary hover:text-white hover:border-primary/50 transition-all duration-300 shadow-sm flex items-center gap-3 group">
+                    <div className="w-6 h-6 rounded-lg bg-primary/5 group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                      {s.includes('metrics') ? <Activity className="w-3 h-3" /> : <Info className="w-3 h-3" />}
+                    </div>
                     {s}
                   </button>
                 ))}
@@ -207,59 +226,73 @@ export function HealthChatbot() {
             </div>
           )}
           {messages.map((m, i) => (
-            <div key={i} className={cn("flex gap-2", m.role === 'user' ? 'justify-end' : 'justify-start')}>
+            <div key={i} className={cn("flex gap-3 animate-in slide-in-from-bottom-2 duration-300", m.role === 'user' ? 'justify-end' : 'justify-start')}>
               {m.role === 'assistant' && (
-                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                  <Bot className="w-3.5 h-3.5 text-primary" />
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1 shadow-inner border border-primary/5">
+                  <Bot className="w-4 h-4 text-primary" />
                 </div>
               )}
               <div className={cn(
-                "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm",
-                m.role === 'user' ? 'gradient-hero text-white rounded-br-md' : 'bg-muted/50 text-foreground rounded-bl-md'
+                "max-w-[85%] rounded-[1.5rem] px-5 py-3.5 text-[0.925rem] shadow-sm leading-relaxed",
+                m.role === 'user' 
+                  ? 'gradient-hero text-white rounded-tr-none shadow-glow' 
+                  : 'bg-muted/40 backdrop-blur-md text-foreground rounded-tl-none border border-border/40'
               )}>
                 {m.role === 'assistant' ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1.5 [&>ul]:mb-1.5 [&>p:last-child]:mb-0">
+                  <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-2 [&>ul]:mb-2 [&>p:last-child]:mb-0 selection:bg-primary/20">
                     <ReactMarkdown>{m.content}</ReactMarkdown>
                   </div>
-                ) : <p>{m.content}</p>}
+                ) : <p className="font-medium">{m.content}</p>}
               </div>
               {m.role === 'user' && (
-                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                  <User className="w-3.5 h-3.5 text-primary" />
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1 shadow-inner border border-primary/5">
+                  <User className="w-4 h-4 text-primary" />
                 </div>
               )}
             </div>
           ))}
-          {loading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-2 items-center">
-              <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Bot className="w-3.5 h-3.5 text-primary" />
+          {loading && (
+            <div className="flex gap-3 items-center animate-in fade-in duration-300">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/5 shadow-inner">
+                <Bot className="w-4 h-4 text-primary" />
               </div>
-              <div className="flex gap-1 px-3 py-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+              <div className="flex gap-1.5 px-4 py-3.5 bg-muted/30 backdrop-blur-md rounded-2xl rounded-tl-none border border-border/40">
+                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:300ms]" />
               </div>
+              <span className="text-[10px] text-muted-foreground font-medium animate-pulse">Thinking...</span>
             </div>
           )}
         </div>
 
         {/* Input */}
-        <div className="flex-shrink-0 p-3 border-t border-border/60">
-          <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex items-center gap-2">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Ask about health..."
-              className="flex-1 h-10 px-3.5 rounded-xl border border-border/60 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 text-foreground placeholder:text-muted-foreground"
-              disabled={loading}
-            />
-            <Button type="submit" size="icon" disabled={!input.trim() || loading} className="h-10 w-10 rounded-xl gradient-hero border-0 text-white flex-shrink-0">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </Button>
+        <div className="flex-shrink-0 p-6 pt-2 bg-gradient-to-t from-background to-transparent">
+          <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex items-center gap-3 relative">
+            <div className="relative flex-1">
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="Describe your symptoms or ask a question..."
+                className="w-full h-14 pl-5 pr-14 rounded-2xl border border-border/60 bg-white/50 backdrop-blur-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-transparent transition-all shadow-inner text-foreground placeholder:text-muted-foreground/60"
+                disabled={loading}
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <Button 
+                  type="submit" 
+                  size="icon" 
+                  disabled={!input.trim() || loading} 
+                  className="h-10 w-10 rounded-xl gradient-hero border-0 text-white shadow-lg active:scale-90 transition-all"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
           </form>
+          <p className="text-[10px] text-center text-muted-foreground/60 mt-3 font-medium uppercase tracking-wider">Medical AI Companion • Privacy Guaranteed</p>
         </div>
       </div>
     </>
   );
 }
+

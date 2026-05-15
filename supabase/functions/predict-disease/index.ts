@@ -6,8 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// --- Prediction Logic Start ---
-
+// --- Local Prediction Logic (Fallback) ---
 function normalizeSymptom(symptom: string): string {
   return symptom.toLowerCase().trim().replace(/[^a-z\s]/g, '');
 }
@@ -15,28 +14,21 @@ function normalizeSymptom(symptom: string): string {
 function fuzzyMatch(userSymptom: string, diseaseSymptom: string): boolean {
   const user = normalizeSymptom(userSymptom);
   const disease = normalizeSymptom(diseaseSymptom);
-
   if (user === disease) return true;
   if (user.includes(disease) || disease.includes(user)) return true;
-
   const userWords = user.split(' ');
   const diseaseWords = disease.split(' ');
-
   for (const uw of userWords) {
     for (const dw of diseaseWords) {
-      if (uw.length > 3 && dw.length > 3 && (uw.includes(dw) || dw.includes(uw))) {
-        return true;
-      }
+      if (uw.length > 3 && dw.length > 3 && (uw.includes(dw) || dw.includes(uw))) return true;
     }
   }
-
   return false;
 }
 
-function calculatePrediction(userSymptoms: string[], diseaseSymptoms: string[]) {
+function calculateLocalPrediction(userSymptoms: string[], diseaseSymptoms: string[]) {
   const matched: string[] = [];
   const matchedDiseaseSymptoms = new Set<string>();
-
   for (const userSymptom of userSymptoms) {
     for (const diseaseSymptom of diseaseSymptoms) {
       if (!matchedDiseaseSymptoms.has(diseaseSymptom) && fuzzyMatch(userSymptom, diseaseSymptom)) {
@@ -46,110 +38,115 @@ function calculatePrediction(userSymptoms: string[], diseaseSymptoms: string[]) 
       }
     }
   }
-
   if (userSymptoms.length === 0) return { score: 0, matched: [] };
-
-  const userMatchRatio = matched.length / userSymptoms.length;
-  const diseaseMatchRatio = matchedDiseaseSymptoms.size / diseaseSymptoms.length;
-
-  // Weighted score favor matching user symptoms
-  const score = (userMatchRatio * 0.6) + (diseaseMatchRatio * 0.4);
-
+  const score = (matched.length / userSymptoms.length * 0.6) + (matchedDiseaseSymptoms.size / diseaseSymptoms.length * 0.4);
   return { score, matched };
 }
 
-// --- Prediction Logic End ---
-
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { symptoms } = await req.json();
-
     if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Please provide symptoms as an array" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Please provide symptoms" }), { status: 400, headers: corsHeaders });
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    console.log(`Connecting to Supabase at: ${supabaseUrl}`);
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Fetch diseases from database
-    console.log("Fetching diseases from database...");
-    const { data: diseases, error: fetchError } = await supabase
-      .from("diseases")
-      .select("*");
-
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: diseases, error: fetchError } = await supabase.from("diseases").select("*");
     if (fetchError) throw fetchError;
 
-    if (!diseases || diseases.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Disease database is empty" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+    
+    if (GROQ_API_KEY) {
+      console.log("Using Groq AI for prediction...");
+      const apiUrl = `https://api.groq.com/openai/v1/chat/completions`;
+      
+      const prompt = `You are a medical diagnostic assistant. Analyze these symptoms: ${symptoms.join(", ")}.
+Here is a database of known diseases and their typical symptoms:
+${JSON.stringify(diseases.map(d => ({ name: d.name, symptoms: d.symptoms, id: d.id })))}
+
+Based ON ONLY THE DATABASE PROVIDED, identify the top 3 most likely conditions.
+Return your response as a valid JSON object with this structure:
+{
+  "predictions": [
+    {
+      "disease_name": "string",
+      "confidence": number (0-100),
+      "matched_symptoms": ["string"],
+      "reasoning": "string",
+      "severity": "low|moderate|severe|critical"
+    }
+  ],
+  "general_advice": "string",
+  "urgency": "low|medium|high|emergency"
+}
+Important: Be conservative with confidence scores. If symptoms are vague, lower the confidence and suggest clarifying questions in the reasoning.`;
+
+      const aiRes = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
+        body: JSON.stringify({ 
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" }
+        }),
+      });
+
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        const responseText = aiData.choices?.[0]?.message?.content;
+        if (responseText) {
+          const parsed = JSON.parse(responseText);
+          // Enrich with database info (precautions, medications)
+          parsed.predictions = parsed.predictions.map((p: any) => {
+            const dbMatch = diseases.find(d => d.name.toLowerCase() === p.disease_name.toLowerCase());
+            return {
+              ...p,
+              precautions: dbMatch?.precautions || [],
+              medications: dbMatch?.medications || [],
+              is_communicable: dbMatch?.is_communicable || false
+            };
+          });
+          return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+      console.warn("AI Prediction failed or returned empty, falling back to local logic");
     }
 
-    // Run prediction model
+    // Local Fallback Logic
+    console.log("Running local prediction fallback...");
     const predictionsList = diseases.map(disease => {
-      const { score, matched } = calculatePrediction(symptoms, disease.symptoms || []);
-
-      // Calculate confidence (0-100)
-      const confidence = Math.min(100, Math.round(
-        score * 100 *
-        (matched.length >= 3 ? 1.2 : matched.length >= 2 ? 1.0 : 0.8)
-      ));
-
+      const { score, matched } = calculateLocalPrediction(symptoms, disease.symptoms || []);
+      const confidence = Math.min(100, Math.round(score * 100 * (matched.length >= 3 ? 1.2 : 1.0)));
       return {
         disease_name: disease.name,
-        confidence: confidence,
+        confidence,
         matched_symptoms: matched,
         severity: disease.severity || "moderate",
         is_communicable: disease.is_communicable || false,
         precautions: disease.precautions || [],
         medications: disease.medications || [],
-        reasoning: `Matched ${matched.length} symptoms: ${matched.join(", ")}. This provides a match score of ${Math.round(score * 100)}%.`,
-        score: score
+        reasoning: `Matched ${matched.length} symptoms via fuzzy matching.`,
+        score
       };
     });
 
-    // Sort by score and take top 5
-    const topPredictions = predictionsList
-      .filter(p => p.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
+    const topPredictions = predictionsList.filter(p => p.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+    const urgency = topPredictions.some(p => p.severity === "critical" || p.severity === "severe") ? "high" : "medium";
 
-    // Determine overall urgency
-    let maxUrgency = "low";
-    const severities = topPredictions.map(p => p.severity);
-    if (severities.includes("critical")) maxUrgency = "emergency";
-    else if (severities.includes("severe")) maxUrgency = "high";
-    else if (severities.includes("moderate")) maxUrgency = "medium";
-
-    const response = {
+    return new Response(JSON.stringify({
       predictions: topPredictions,
-      general_advice: topPredictions.length > 0
-        ? `Based on your symptoms (${symptoms.join(", ")}), the local model predicts ${topPredictions[0].disease_name} as the most likely condition. Please consult a doctor for a definitive diagnosis.`
-        : "No matching diseases found in our database for these symptoms.",
-      urgency: maxUrgency
-    };
+      general_advice: topPredictions.length > 0 ? "Predictions based on local matching logic." : "No matches found.",
+      urgency
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    return new Response(
-      JSON.stringify(response),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("predict-disease error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
 });
+
 
