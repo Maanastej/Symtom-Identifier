@@ -2,7 +2,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Heart, LogOut, User, Menu } from 'lucide-react';
+import { Heart, LogOut, User, Menu, Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, onTabChange }: HeaderProps) {
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const initials = user?.user_metadata?.full_name
     ?.split(' ')
@@ -56,7 +58,19 @@ export function Header({ onMenuClick, onTabChange }: HeaderProps) {
           </button>
         </nav>
 
-        <DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+          </Button>
+
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-10 w-10">
@@ -89,6 +103,7 @@ export function Header({ onMenuClick, onTabChange }: HeaderProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
     </header>
   );
