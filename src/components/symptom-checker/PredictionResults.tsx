@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { AlertTriangle, CheckCircle, Pill, Shield, ExternalLink, FileText, Brain, AlertCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Pill, Shield, ExternalLink, FileText, Brain, AlertCircle, MessageCircle, Send } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export interface AIPrediction {
@@ -21,6 +23,8 @@ interface PredictionResultsProps {
   results: AIPrediction[];
   generalAdvice: string;
   urgency: string;
+  followUpQuestions?: string[];
+  onAnswerFollowUp?: (answer: string) => void;
   onReportCase: (result: AIPrediction) => void;
 }
 
@@ -45,7 +49,16 @@ const pharmacyLinks = [
   { name: 'Netmeds', url: 'https://www.netmeds.com/catalogsearch/result?q=' }
 ];
 
-export function PredictionResults({ results, generalAdvice, urgency, onReportCase }: PredictionResultsProps) {
+export function PredictionResults({ results, generalAdvice, urgency, followUpQuestions, onAnswerFollowUp, onReportCase }: PredictionResultsProps) {
+  const [followUpAnswer, setFollowUpAnswer] = useState('');
+
+  const handleFollowUpSubmit = () => {
+    if (followUpAnswer.trim() && onAnswerFollowUp) {
+      onAnswerFollowUp(followUpAnswer.trim());
+      setFollowUpAnswer('');
+    }
+  };
+
   if (results.length === 0) {
     return (
       <Card className="h-full">
@@ -91,6 +104,31 @@ export function PredictionResults({ results, generalAdvice, urgency, onReportCas
               {urgency === 'low' && 'Monitor your symptoms and rest.'}
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Follow-up Questions (Agentic behavior) */}
+        {followUpQuestions && followUpQuestions.length > 0 && (
+          <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-primary font-semibold">
+              <MessageCircle className="w-5 h-5" />
+              <span>AI Needs More Info</span>
+            </div>
+            <ul className="text-sm text-foreground/80 space-y-1 list-disc list-inside">
+              {followUpQuestions.map((q, i) => <li key={i}>{q}</li>)}
+            </ul>
+            <div className="flex gap-2 pt-2">
+              <Input 
+                placeholder="Type your answer here to refine..." 
+                value={followUpAnswer}
+                onChange={e => setFollowUpAnswer(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleFollowUpSubmit(); }}
+                className="bg-background"
+              />
+              <Button size="icon" onClick={handleFollowUpSubmit}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* General Advice */}

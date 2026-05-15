@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [predictions, setPredictions] = useState<AIPrediction[]>([]);
   const [generalAdvice, setGeneralAdvice] = useState<string>('');
   const [urgency, setUrgency] = useState<string>('');
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const [predicting, setPredicting] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<AIPrediction | null>(null);
@@ -90,6 +91,7 @@ export default function Dashboard() {
       return;
     }
     setPredicting(true);
+    setFollowUpQuestions([]); // Clear previous questions
     try {
       const { data, error } = await supabase.functions.invoke('predict-disease', {
         body: { symptoms: selectedSymptoms }
@@ -98,12 +100,44 @@ export default function Dashboard() {
       setPredictions(data.predictions || []);
       setGeneralAdvice(data.general_advice || '');
       setUrgency(data.urgency || 'medium');
+      if (data.follow_up_questions) {
+        setFollowUpQuestions(data.follow_up_questions);
+      }
     } catch (error) {
       console.error('Prediction error:', error);
       toast.error('Failed to get prediction');
     } finally {
       setPredicting(false);
     }
+  };
+
+  const handleAnswerFollowUp = (answer: string) => {
+    // Append the answer to the list of symptoms as context for the AI
+    const newContext = `Patient clarified: ${answer}`;
+    const newSymptoms = [...selectedSymptoms, newContext];
+    setSelectedSymptoms(newSymptoms);
+    
+    // Auto trigger prediction with new context
+    setPredicting(true);
+    setFollowUpQuestions([]);
+    
+    supabase.functions.invoke('predict-disease', {
+      body: { symptoms: newSymptoms }
+    }).then(({ data, error }) => {
+      if (error) {
+        toast.error('Failed to get prediction');
+        console.error(error);
+        return;
+      }
+      setPredictions(data.predictions || []);
+      setGeneralAdvice(data.general_advice || '');
+      setUrgency(data.urgency || 'medium');
+      if (data.follow_up_questions) {
+        setFollowUpQuestions(data.follow_up_questions);
+      }
+    }).finally(() => {
+      setPredicting(false);
+    });
   };
 
   const handleReportCase = (result: AIPrediction) => {
@@ -165,6 +199,8 @@ export default function Dashboard() {
                 results={predictions}
                 generalAdvice={generalAdvice}
                 urgency={urgency}
+                followUpQuestions={followUpQuestions}
+                onAnswerFollowUp={handleAnswerFollowUp}
                 onReportCase={handleReportCase}
               />
             </div>

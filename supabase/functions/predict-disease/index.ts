@@ -78,10 +78,11 @@ Return your response as a valid JSON object with this structure:
       "severity": "low|moderate|severe|critical"
     }
   ],
+  "follow_up_questions": ["string"],
   "general_advice": "string",
   "urgency": "low|medium|high|emergency"
 }
-Important: Be conservative with confidence scores. If symptoms are vague, lower the confidence and suggest clarifying questions in the reasoning.`;
+Important: Be conservative with confidence scores. If the symptoms are vague or could match multiple conditions, generate 2-3 specific "follow_up_questions" that would help you narrow down the diagnosis (e.g. "How long have you had the fever?"). If you are highly confident, "follow_up_questions" can be empty.`;
 
       const aiRes = await fetch(apiUrl, {
         method: 'POST',
