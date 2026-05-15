@@ -82,7 +82,8 @@ Return your response as a valid JSON object with this structure:
   "general_advice": "string",
   "urgency": "low|medium|high|emergency"
 }
-Important: Be conservative with confidence scores. If the symptoms are vague or could match multiple conditions, generate 2-3 specific "follow_up_questions" that would help you narrow down the diagnosis (e.g. "How long have you had the fever?"). If you are highly confident, "follow_up_questions" can be empty.`;
+Important: Be conservative with confidence scores. If the symptoms are vague or could match multiple conditions, generate 2-3 specific "follow_up_questions" that would help you narrow down the diagnosis. 
+CRITICAL RULE: The input may contain statements starting with "Patient clarified:". You MUST read these carefully. Do NOT ask questions that have already been answered in the clarifications. If the clarifications resolve the ambiguity, or if you are highly confident in your prediction, leave "follow_up_questions" completely empty.`;
 
       const aiRes = await fetch(apiUrl, {
         method: 'POST',
